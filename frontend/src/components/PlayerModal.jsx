@@ -168,6 +168,7 @@ export default function PlayerModal({ item, initialSeason = 1, initialEpisode = 
                 className="w-full h-full border-0"
                 allowFullScreen
                 referrerPolicy="origin"
+                sandbox="allow-scripts allow-forms allow-presentation"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               />
             </div>
