@@ -49,39 +49,33 @@ async function redir(pageUrl) {
 async function extractStreamwish(pageUrl) {
   console.log(`[SW RESOLVER] Resolviendo: ${pageUrl}`);
   try {
-    const finalUrl = await redir(pageUrl);
-    console.log(`[SW RESOLVER] URL redirigida para solicitud: ${finalUrl}`);
-
     let html;
     try {
-      const res = await axiosGet(finalUrl, {
+      const res = await axiosGet(pageUrl, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
           'Accept': '*/*',
-          'Referer': finalUrl
-        }
+          'Referer': pageUrl
+        },
+        timeout: 6000
       });
       html = res.data;
     } catch (e) {
-      console.warn('[SW RESOLVER] Error descargando página redirigida, intentando original:', e.message);
-      try {
-        const res = await axiosGet(pageUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0',
-            'Accept': '*/*',
-            'Referer': pageUrl
-          }
-        });
-        html = res.data;
-      } catch (errOriginal) {
-        console.error('[SW RESOLVER] Error descargando página original también:', errOriginal.message);
-        return null;
-      }
+      console.warn('[SW RESOLVER] Error descargando página original, intentando redirect:', e.message);
+      const finalUrl = await redir(pageUrl);
+      const res = await axiosGet(finalUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept': '*/*',
+          'Referer': finalUrl
+        },
+        timeout: 6000
+      });
+      html = res.data;
     }
 
-    const scriptMatch = html.match(
-      /<script[^>]*type=['"]text\/javascript['"][^>]*>\s*(eval\(function\(p,a,c,k,e,d\)[\s\S]*?)<\/script>/i
-    );
+    const scriptMatch = html.match(/(eval\(function\(p,a,c,k,e,d\)[\s\S]*?\}\)\))/i) ||
+                        html.match(/<script[^>]*>\s*(eval\(function\(p,a,c,k,e,d\)[\s\S]*?)<\/script>/i);
     if (!scriptMatch) {
       console.log('[SW RESOLVER] Script packed no encontrado');
       return null;
