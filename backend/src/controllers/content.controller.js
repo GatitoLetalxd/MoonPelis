@@ -171,8 +171,7 @@ async function resolveStream(req, res) {
 }
 
 /**
- * Opción 1: Proxy HTML Completo
- * Descarga el HTML del embed, inserta un <base href="..."> para resolver assets y neutraliza detecciones de iframe/sandbox.
+ * Opción 3: Parchear localStorage y DOM en el Proxy con URLs absolutas
  */
 async function proxyEmbed(req, res) {
   try {
@@ -196,20 +195,40 @@ async function proxyEmbed(req, res) {
 
     let html = await fetchResponse.text();
 
-    // 1. Inyectar <base> para que assets relativos resuelvan contra el servidor original
-    if (html.includes("<head>")) {
-      html = html.replace("<head>", `<head><base href="${targetUrl}">`);
-    } else if (html.includes("<html>")) {
-      html = html.replace("<html>", `<html><head><base href="${targetUrl}"></head>`);
-    }
+    // 1. Convertir rutas relativas (/js/..., /css/...) a URLs absolutas del servidor remoto
+    html = html.replace(/(src|href)=["']\/(?!\/)/gi, `$1="${origin}/`);
 
-    // 2. Neutralizar detecciones JS comunes y remover metas X-Frame-Options del HTML remoto
-    html = html.replace(/<meta[^>]*http-equiv=["']?X-Frame-Options["']?[^>]*>/gi, "");
-    html = html.replace(/localStorage\.setItem/g, "void");
-    html = html.replace(/localStorage\.getItem/g, "(()=>null)");
-    html = html.replace(/window\.top\s*===\s*window\.self/g, "true");
-    html = html.replace(/window\.top\s*!==\s*window\.self/g, "false");
-    html = html.replace(/top\.location/g, "window.self.location");
+    // 2. Opción 3: Inyectar script de mockeo en el <head> antes de que corra el player
+    const patchScript = `
+    <script>
+      (function() {
+        const mockStorage = {};
+        try {
+          Object.defineProperty(window, 'localStorage', {
+            value: {
+              setItem: function(k, v) { mockStorage[k] = v; },
+              getItem: function(k) { return mockStorage[k] || null; },
+              removeItem: function(k) { delete mockStorage[k]; },
+              clear: function() { Object.keys(mockStorage).forEach(function(k) { delete mockStorage[k]; }); }
+            },
+            writable: false
+          });
+        } catch(e) {}
+
+        try {
+          Object.defineProperty(window, 'top', {
+            get: function() { return window.self; }
+          });
+        } catch(e) {}
+      })();
+    </script>
+    `;
+
+    if (html.includes("<head>")) {
+      html = html.replace("<head>", `<head><base href="${targetUrl}">${patchScript}`);
+    } else {
+      html = patchScript + html;
+    }
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     return res.send(html);
