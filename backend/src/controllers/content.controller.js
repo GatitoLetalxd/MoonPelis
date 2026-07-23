@@ -212,7 +212,6 @@ async function proxyEmbed(req, res) {
     html = html.replace(/top\.location/g, "window.self.location");
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.setHeader("X-Frame-Options", "SAMEORIGIN");
     return res.send(html);
   } catch (err) {
     console.error("[Proxy Embed Error]", err.message);
