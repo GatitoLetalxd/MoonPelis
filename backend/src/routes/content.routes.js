@@ -6,6 +6,7 @@ const {
   getContentInfo,
   getContentServers,
   resolveStream,
+  proxyEmbed,
 } = require("../controllers/content.controller");
 const { authMiddleware } = require("../middlewares/auth.middleware");
 
@@ -18,5 +19,8 @@ router.get("/servers/:slug", authMiddleware, getContentServers);
 // Resolver de stream directo con caché de 2 horas (admite GET y POST)
 router.get("/resolve", authMiddleware, resolveStream);
 router.post("/resolve", authMiddleware, resolveStream);
+
+// Opción 1: Proxy HTML Completo
+router.get("/proxy/embed", authMiddleware, proxyEmbed);
 
 module.exports = router;

@@ -163,12 +163,11 @@ export default function PlayerModal({ item, initialSeason = 1, initialEpisode = 
           ) : streamUrl && streamUrl.trim() !== '' ? (
             <div className="relative w-full h-full">
               <iframe
-                src={streamUrl}
+                src={`/api/v1/content/proxy/embed?url=${encodeURIComponent(streamUrl)}`}
                 title={item.title}
                 className="w-full h-full border-0"
                 allowFullScreen
                 referrerPolicy="origin"
-                sandbox="allow-scripts allow-forms allow-presentation"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               />
             </div>

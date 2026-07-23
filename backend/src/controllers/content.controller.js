@@ -170,10 +170,60 @@ async function resolveStream(req, res) {
   }
 }
 
+/**
+ * Opción 1: Proxy HTML Completo
+ * Descarga el HTML del embed, inserta un <base href="..."> para resolver assets y neutraliza detecciones de iframe/sandbox.
+ */
+async function proxyEmbed(req, res) {
+  try {
+    const rawUrl = req.query.url;
+    if (!rawUrl) {
+      return res.status(400).send("Se requiere el parámetro url");
+    }
+
+    const targetUrl = decodeURIComponent(rawUrl);
+    const parsedUrl = new URL(targetUrl);
+    const origin = `${parsedUrl.protocol}//${parsedUrl.host}`;
+
+    const fetchResponse = await fetch(targetUrl, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        Referer: `${origin}/`,
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      },
+    });
+
+    let html = await fetchResponse.text();
+
+    // 1. Inyectar <base> para que assets relativos resuelvan contra el servidor original
+    if (html.includes("<head>")) {
+      html = html.replace("<head>", `<head><base href="${targetUrl}">`);
+    } else if (html.includes("<html>")) {
+      html = html.replace("<html>", `<html><head><base href="${targetUrl}"></head>`);
+    }
+
+    // 2. Neutralizar detecciones JS comunes
+    html = html.replace(/localStorage\.setItem/g, "void");
+    html = html.replace(/localStorage\.getItem/g, "(()=>null)");
+    html = html.replace(/window\.top\s*===\s*window\.self/g, "true");
+    html = html.replace(/window\.top\s*!==\s*window\.self/g, "false");
+    html = html.replace(/top\.location/g, "window.self.location");
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("X-Frame-Options", "ALLOWALL");
+    return res.send(html);
+  } catch (err) {
+    console.error("[Proxy Embed Error]", err.message);
+    return res.status(500).send("Error al procesar el proxy del embed");
+  }
+}
+
 module.exports = {
   searchContent,
   getCatalog,
   getContentInfo,
   getContentServers,
   resolveStream,
+  proxyEmbed,
 };
