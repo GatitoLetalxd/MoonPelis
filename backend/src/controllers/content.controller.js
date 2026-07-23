@@ -203,7 +203,8 @@ async function proxyEmbed(req, res) {
       html = html.replace("<html>", `<html><head><base href="${targetUrl}"></head>`);
     }
 
-    // 2. Neutralizar detecciones JS comunes
+    // 2. Neutralizar detecciones JS comunes y remover metas X-Frame-Options del HTML remoto
+    html = html.replace(/<meta[^>]*http-equiv=["']?X-Frame-Options["']?[^>]*>/gi, "");
     html = html.replace(/localStorage\.setItem/g, "void");
     html = html.replace(/localStorage\.getItem/g, "(()=>null)");
     html = html.replace(/window\.top\s*===\s*window\.self/g, "true");
@@ -211,7 +212,7 @@ async function proxyEmbed(req, res) {
     html = html.replace(/top\.location/g, "window.self.location");
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.setHeader("X-Frame-Options", "ALLOWALL");
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
     return res.send(html);
   } catch (err) {
     console.error("[Proxy Embed Error]", err.message);
